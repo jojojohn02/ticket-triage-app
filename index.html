@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal — Ticket Triage Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12141c;
+    --panel:#1b1f2a;
+    --panel-2:#232838;
+    --border:#2e3444;
+    --text:#eceef3;
+    --text-dim:#8991a6;
+    --accent:#5eead4;
+    --accent-dim:rgba(94,234,212,0.14);
+
+    --p1:#f0475a; --p1-bg:rgba(240,71,90,0.13);
+    --p2:#f2994a; --p2-bg:rgba(242,153,74,0.13);
+    --p3:#e8c547; --p3-bg:rgba(232,197,71,0.13);
+    --p4:#4fb477; --p4-bg:rgba(79,180,119,0.13);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    padding:48px 20px 80px;
+    min-height:100vh;
+  }
+  .shell{max-width:760px;margin:0 auto;}
+
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    color:var(--accent);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .eyebrow::before{
+    content:'';
+    width:7px;height:7px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 8px var(--accent);
+  }
+  h1{
+    font-family:'JetBrains Mono',monospace;
+    font-size:clamp(32px,6vw,44px);
+    font-weight:700;
+    margin:0 0 12px;
+    letter-spacing:-0.01em;
+  }
+  .lede{
+    color:var(--text-dim);
+    font-size:16px;
+    max-width:52ch;
+    margin:0 0 36px;
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+  }
+
+  textarea{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    padding:14px 16px;
+    min-height:110px;
+    resize:vertical;
+  }
+  textarea:focus-visible, button:focus-visible, .chip:focus-visible{
+    outline:2px solid var(--accent);
+    outline-offset:2px;
+  }
+  textarea::placeholder{color:var(--text-dim);}
+
+  .examples-label{
+    font-size:12px;
+    color:var(--text-dim);
+    margin:16px 0 8px;
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:0.04em;
+  }
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px;}
+  .chip{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    font-size:13px;
+    padding:7px 12px;
+    border-radius:100px;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    transition:border-color .15s, color .15s;
+  }
+  .chip:hover{border-color:var(--accent);color:var(--text);}
+
+  .row-end{display:flex;justify-content:flex-end;}
+  .btn-primary{
+    background:var(--accent);
+    color:#0b1310;
+    border:none;
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:13px;
+    letter-spacing:0.03em;
+    padding:13px 22px;
+    border-radius:9px;
+    cursor:pointer;
+    text-transform:uppercase;
+    transition:transform .1s, box-shadow .15s;
+  }
+  .btn-primary:hover{box-shadow:0 0 0 4px var(--accent-dim);}
+  .btn-primary:active{transform:scale(0.98);}
+
+  /* Results */
+  .result-wrap{display:none;}
+  .result-wrap.visible{display:block;}
+  .result-grid{
+    display:grid;
+    grid-template-columns:180px 1fr;
+    gap:16px;
+  }
+  @media (max-width:560px){
+    .result-grid{grid-template-columns:1fr;}
+  }
+
+  .priority-block{
+    border-radius:12px;
+    padding:20px 18px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:6px;
+    border:1px solid var(--border);
+  }
+  .priority-code{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px;
+    letter-spacing:0.06em;
+    opacity:0.85;
+  }
+  .priority-name{
+    font-family:'JetBrains Mono',monospace;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .priority-team{
+    font-size:13px;
+    color:var(--text-dim);
+    margin-top:6px;
+  }
+  .priority-team strong{color:var(--text);font-weight:600;}
+
+  .readout{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:18px;
+  }
+  .readout-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:14px;
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .readout-row:last-of-type{border-bottom:none;}
+  .readout-label{color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.04em;}
+  .readout-value{font-weight:600;}
+
+  .meter-track{
+    width:100%;
+    height:8px;
+    background:var(--border);
+    border-radius:100px;
+    overflow:hidden;
+    margin-top:14px;
+  }
+  .meter-fill{
+    height:100%;
+    width:0%;
+    border-radius:100px;
+    transition:width .6s ease;
+  }
+
+  .why-title{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--text-dim);
+    letter-spacing:0.04em;
+    margin-top:16px;
+    margin-bottom:8px;
+  }
+  .why-tags{display:flex;flex-wrap:wrap;gap:6px;}
+  .why-tag{
+    background:var(--accent-dim);
+    color:var(--accent);
+    font-size:12px;
+    font-family:'JetBrains Mono',monospace;
+    padding:4px 9px;
+    border-radius:6px;
+  }
+  .why-empty{color:var(--text-dim);font-size:13px;}
+
+  /* Explainer */
+  .explainer h2{
+    font-family:'JetBrains Mono',monospace;
+    font-size:15px;
+    letter-spacing:0.02em;
+    margin:0 0 14px;
+  }
+  .step{display:flex;gap:14px;margin-bottom:16px;}
+  .step:last-child{margin-bottom:0;}
+  .step-num{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--accent);
+    font-size:13px;
+    padding-top:2px;
+    flex-shrink:0;
+    width:20px;
+  }
+  .step-text{color:var(--text-dim);font-size:14px;}
+  .step-text strong{color:var(--text);font-weight:600;}
+
+  .note{
+    font-size:13px;
+    color:var(--text-dim);
+    border-top:1px solid var(--border);
+    margin-top:20px;
+    padding-top:16px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="eyebrow">ticket triage console</div>
+  <h1>Signal</h1>
+  <p class="lede">Paste a support ticket below. It reads the tone, spots the issue, and tells you how fast to move — and shows its work.</p>
+
+  <div class="card">
+    <textarea id="ticketInput" placeholder="e.g. I've been unable to log in since this morning! Please fix this ASAP."></textarea>
+    <div class="examples-label">OR TRY ONE:</div>
+    <div class="chips" id="chipRow"></div>
+    <div class="row-end">
+      <button class="btn-primary" id="analyzeBtn">Read this ticket</button>
+    </div>
+  </div>
+
+  <div class="card result-wrap" id="resultWrap">
+    <div class="result-grid">
+      <div class="priority-block" id="priorityBlock">
+        <div class="priority-code" id="priorityCode">P4</div>
+        <div class="priority-name" id="priorityName">LOW</div>
+        <div class="priority-team">route to <strong id="priorityTeam">—</strong></div>
+      </div>
+      <div class="readout">
+        <div class="readout-row"><span class="readout-label">EMOTION</span><span class="readout-value" id="outEmotion">—</span></div>
+        <div class="readout-row"><span class="readout-label">ISSUE</span><span class="readout-value" id="outCategory">—</span></div>
+        <div class="readout-row"><span class="readout-label">SEVERITY</span><span class="readout-value" id="outSeverity">—</span></div>
+        <div class="meter-track"><div class="meter-fill" id="meterFill"></div></div>
+        <div class="why-title">WHAT GAVE IT AWAY</div>
+        <div class="why-tags" id="whyTags"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card explainer">
+    <h2>How Signal reads a ticket</h2>
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-text"><strong>It listens for tone.</strong> Words like "urgent" or "unacceptable" mark a frustrated customer. Words like "confused" or "not sure" mark someone who's just unsure. No tone words, no strong feeling — that's neutral.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-text"><strong>It listens for topic.</strong> "Password" or "locked out" points to a login problem. "Charge" or "refund" points to billing. "Error" or "down" points to a technical bug.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-text"><strong>It listens for impact.</strong> Phrases like "can't access" or "site is down" signal something serious. Phrases like "would be nice" or "just a suggestion" signal it can wait.</div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-text"><strong>It combines all three</strong> into one priority — the same rulebook you'd hand a new agent on day one. Nothing hidden, nothing you can't double-check yourself.</div>
+    </div>
+    <p class="note">This is a working demo of the "brain" from the project plan — the part that reads tone, topic, and impact. It isn't yet connected to a real help desk like Zendesk, and it isn't learning from your team's own tickets. Both are very doable — they're just the next stage, not this one.</p>
+  </div>
+
+</div>
+
+<script>
+const LEXICON = {
+  frustrated: ["urgent","asap","immediately","unacceptable","frustrated","angry","furious","ridiculous","fed up","still not","nothing works","won't work","wont work","can't believe","cant believe","yet again","again and again","3 days","three days","stolen","refuse","terrible","worst","fuming","fix this now","this is a joke"],
+  concerned: ["worried","confused","not sure","unsure","concerned","clarify","wondering","how do i","how do you","not certain","uncertain","help me understand","can you explain"],
+  polite: ["thank you","thanks","love the","love this","great work","appreciate","awesome","wonderful","nice job","well done","great job"]
+};
+
+const CATEGORY_LEXICON = {
+  "Login / Access": ["login","log in","password","locked out","locked","sign in","signing in","authentication","2fa","verification code","access denied","reset my password"],
+  "Billing": ["charge","charged","invoice","refund","payment","billing","subscription fee","declined","overcharged","double charge","double-charged","checkout"],
+  "Technical Bug": ["error","bug","crash","crashed","down","500","slow","broken","not working","glitch","outage","freeze","frozen","malfunction","performance"],
+  "Account": ["account settings","upgrade my plan","downgrade","my profile","subscription tier","change my plan"]
+};
+
+const SEVERITY_HIGH = ["down","can't access","cant access","cannot access","unable to access","crash","outage","locked out","payment failed","stolen","everyone","all customers","entire team","server down","site is down","website is down","system down","data loss","lost my data","can't place orders","cant place orders"];
+const SEVERITY_LOW = ["feature request","would be nice","just a suggestion","suggestion:","minor","typo","just wondering","nice to have","small thing","when you get a chance","no rush"];
+
+const TEAM = {
+  "Login / Access": "Account Support",
+  "Billing": "Finance / Billing",
+  "Technical Bug": "DevOps / Engineering",
+  "Account": "Account Support",
+  "General Inquiry": "Customer Success"
+};
+
+const EXAMPLES = [
+  "I've been unable to log in since this morning! Please fix this ASAP.",
+  "The website is down! Customers can't place orders. Fix ASAP.",
+  "My invoice shows an extra charge. Can you clarify?",
+  "Feature request: allow dark mode in your app. Thanks!",
+  "This is unacceptable — I requested help 3 days ago and nothing!",
+  "Getting frequent payment declines at checkout."
+];
+
+function findMatches(text, list){
+  const t = text.toLowerCase();
+  return list.filter(phrase => t.includes(phrase));
+}
+
+function analyze(rawText){
+  const text = rawText.trim();
+  const t = text.toLowerCase();
+
+  // Emotion
+  const fMatches = findMatches(t, LEXICON.frustrated);
+  const cMatches = findMatches(t, LEXICON.concerned);
+  const pMatches = findMatches(t, LEXICON.polite);
+  const exclaims = (text.match(/!/g) || []).length;
+  const capsWords = (text.match(/\b[A-Z]{3,}\b/g) || []).length;
+
+  let fScore = fMatches.length + (exclaims >= 2 ? 1 : 0) + (capsWords >= 1 ? 1 : 0);
+  let cScore = cMatches.length;
+  let pScore = pMatches.length;
+
+  let emotion = "Neutral";
+  let emotionWhy = [];
+  if (fScore > 0 && fScore >= cScore && fScore >= pScore){
+    emotion = "Frustrated";
+    emotionWhy = fMatches.slice(0,3);
+    if (exclaims >= 2) emotionWhy.push("multiple !");
+  } else if (cScore > 0 && cScore >= pScore){
+    emotion = "Concerned";
+    emotionWhy = cMatches.slice(0,3);
+  } else if (pScore > 0){
+    emotion = "Polite";
+    emotionWhy = pMatches.slice(0,3);
+  }
+
+  // Category
+  let bestCategory = "General Inquiry";
+  let bestCount = 0;
+  let categoryWhy = [];
+  for (const [cat, words] of Object.entries(CATEGORY_LEXICON)){
+    const matches = findMatches(t, words);
+    if (matches.length > bestCount){
+      bestCount = matches.length;
+      bestCategory = cat;
+      categoryWhy = matches.slice(0,3);
+    }
+  }
+
+  // Severity
+  const highMatches = findMatches(t, SEVERITY_HIGH);
+  const lowMatches = findMatches(t, SEVERITY_LOW);
+
+  let score;
+  if (highMatches.length > 0){
+    score = 0.65 + Math.min(0.15, 0.05 * highMatches.length);
+  } else if (lowMatches.length > 0){
+    score = 0.15;
+  } else if (bestCategory !== "General Inquiry"){
+    score = 0.4;
+  } else {
+    score = 0.3;
+  }
+  if (emotion === "Frustrated") score += 0.2;
+  score = Math.max(0, Math.min(1, score));
+
+  let severityLabel = "Low";
+  if (score >= 0.6) severityLabel = "High";
+  else if (score >= 0.35) severityLabel = "Medium";
+
+  let priorityCode, priorityName, priorityVar;
+  if (score >= 0.85){ priorityCode="P1"; priorityName="CRITICAL"; priorityVar="p1"; }
+  else if (score >= 0.6){ priorityCode="P2"; priorityName="HIGH"; priorityVar="p2"; }
+  else if (score >= 0.35){ priorityCode="P3"; priorityName="MEDIUM"; priorityVar="p3"; }
+  else { priorityCode="P4"; priorityName="LOW"; priorityVar="p4"; }
+
+  const why = [...new Set([...emotionWhy, ...categoryWhy, ...highMatches.slice(0,2), ...lowMatches.slice(0,2)])];
+
+  return {
+    emotion, category: bestCategory, severityLabel, score,
+    priorityCode, priorityName, priorityVar,
+    team: TEAM[bestCategory], why
+  };
+}
+
+function render(result){
+  const wrap = document.getElementById('resultWrap');
+  wrap.classList.add('visible');
+
+  document.getElementById('priorityCode').textContent = result.priorityCode;
+  document.getElementById('priorityName').textContent = result.priorityName;
+  document.getElementById('priorityTeam').textContent = result.team;
+  document.getElementById('outEmotion').textContent = result.emotion;
+  document.getElementById('outCategory').textContent = result.category;
+  document.getElementById('outSeverity').textContent = result.severityLabel;
+
+  const block = document.getElementById('priorityBlock');
+  const varColor = `var(--${result.priorityVar})`;
+  const varBg = `var(--${result.priorityVar}-bg)`;
+  block.style.borderColor = varColor;
+  block.style.background = varBg;
+  block.style.color = varColor;
+
+  const fill = document.getElementById('meterFill');
+  fill.style.width = Math.round(result.score*100) + '%';
+  fill.style.background = varColor;
+
+  const whyTags = document.getElementById('whyTags');
+  whyTags.innerHTML = '';
+  if (result.why.length === 0){
+    whyTags.innerHTML = '<span class="why-empty">No strong signal words — treated as routine.</span>';
+  } else {
+    result.why.forEach(w => {
+      const tag = document.createElement('span');
+      tag.className = 'why-tag';
+      tag.textContent = '"' + w + '"';
+      whyTags.appendChild(tag);
+    });
+  }
+}
+
+function runAnalysis(){
+  const text = document.getElementById('ticketInput').value;
+  if (!text.trim()) return;
+  const result = analyze(text);
+  render(result);
+}
+
+document.getElementById('analyzeBtn').addEventListener('click', runAnalysis);
+document.getElementById('ticketInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runAnalysis();
+});
+
+const chipRow = document.getElementById('chipRow');
+EXAMPLES.forEach(ex => {
+  const chip = document.createElement('button');
+  chip.className = 'chip';
+  chip.textContent = ex.length > 46 ? ex.slice(0,46) + '…' : ex;
+  chip.addEventListener('click', () => {
+    document.getElementById('ticketInput').value = ex;
+    runAnalysis();
+  });
+  chipRow.appendChild(chip);
+});
+</script>
+</body>
+</html>
